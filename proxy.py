@@ -23,7 +23,7 @@ async def zmq_listener_task(websocket):
     socket.connect(BITCOIN_ZMQ_ADDRESS)
     socket.setsockopt_string(zmq.SUBSCRIBE, 'rawblock')
     socket.connect(COUNTERPARTY_ZMQ_ADDRESS)
-    socket.setsockopt_string(zmq.SUBSCRIBE, '')
+    socket.setsockopt_string(zmq.SUBSCRIBE, 'NEW_FAIRMINT')
 
     async for msg in zmq_listener(socket):
         try:
