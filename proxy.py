@@ -4,10 +4,13 @@ import zmq
 import zmq.asyncio
 import binascii
 import json
+from dotenv import load_dotenv
 
-BITCOIN_ZMQ_ADDRESS = "tcp://counterparty-core-bitcoind-1:9333"
-COUNTERPARTY_ZMQ_ADDRESS = "tcp://counterparty-core-counterparty-core-1:4001"
-WEBSOCKET_PORT = 8765
+load_dotenv()
+
+BITCOIN_ZMQ_ADDRESS = os.getenv("BITCOIN_ZMQ_ADDRESS", "tcp://default-bitcoind:9333")
+COUNTERPARTY_ZMQ_ADDRESS = os.getenv("COUNTERPARTY_ZMQ_ADDRESS", "tcp://default-counterparty:4001")
+WEBSOCKET_PORT = int(os.getenv("WEBSOCKET_PORT", 8765))
 
 async def zmq_listener(socket):
     while True:
