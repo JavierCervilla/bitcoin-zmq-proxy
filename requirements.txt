@@ -1,3 +1,2 @@
 websockets
 pyzmq
-python-dotenv
