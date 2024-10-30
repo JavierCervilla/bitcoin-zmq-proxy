@@ -4,9 +4,7 @@ import zmq
 import zmq.asyncio
 import binascii
 import json
-from dotenv import load_dotenv
-
-load_dotenv()
+import os
 
 BITCOIN_ZMQ_ADDRESS = os.getenv("BITCOIN_ZMQ_ADDRESS", "tcp://default-bitcoind:9333")
 COUNTERPARTY_ZMQ_ADDRESS = os.getenv("COUNTERPARTY_ZMQ_ADDRESS", "tcp://default-counterparty:4001")
