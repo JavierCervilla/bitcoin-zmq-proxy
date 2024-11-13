@@ -1,2 +1,2 @@
-websockets
-pyzmq
+websockets==10.5
+pyzmq==26.2.0
