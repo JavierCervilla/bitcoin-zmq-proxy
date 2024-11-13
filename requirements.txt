@@ -1,2 +1,2 @@
-websockets==14.0
+websockets==14.1
 pyzmq==26.2.0

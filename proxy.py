@@ -2,7 +2,6 @@ import asyncio
 import websockets
 import zmq
 import zmq.asyncio
-import binascii
 import json
 import os
 
@@ -20,9 +19,9 @@ async def zmq_listener_task(websocket):
     context = zmq.asyncio.Context()
     socket = context.socket(zmq.SUB)
     socket.setsockopt(zmq.RCVHWM, 0)
+    socket.connect(COUNTERPARTY_ZMQ_ADDRESS)
     #socket.connect(BITCOIN_ZMQ_ADDRESS)
     #socket.setsockopt_string(zmq.SUBSCRIBE, 'rawblock')
-    socket.connect(COUNTERPARTY_ZMQ_ADDRESS)
     socket.setsockopt_string(zmq.SUBSCRIBE, '')
 
     async for msg in zmq_listener(socket):
@@ -42,21 +41,16 @@ async def zmq_listener_task(websocket):
             break
 
 async def ws_handler(websocket, path):
-    while True:
-        try:
-            listener_task = asyncio.create_task(zmq_listener_task(websocket))
-            done, pending = await asyncio.wait(
-                [listener_task],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-        except websockets.exceptions.ConnectionClosedError as e:
-            print(f"WebSocket connection closed, retrying: {e}")
-            await asyncio.sleep(1)  # Wait a bit before retrying
-        except websockets.exceptions.ConnectionClosedOK as e:
-            print(f"WebSocket connection closed normally, retrying: {e}")
-            await asyncio.sleep(1)  # Wait a bit before retrying
+    listener_task = asyncio.create_task(zmq_listener_task(websocket))
+    ping_task = asyncio.create_task(ping(websocket))
+
+    done, pending = await asyncio.wait(
+        [listener_task, ping_task],
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+
+    for task in pending:
+        task.cancel()
 
 async def ping(websocket):
     while True:
