@@ -40,7 +40,7 @@ async def zmq_listener_task(websocket):
             print(f"WebSocket connection closed normally: {e}")
             break
 
-async def ws_handler(websocket, path):
+async def ws_handler(websocket, path=None):
     listener_task = asyncio.create_task(zmq_listener_task(websocket))
     ping_task = asyncio.create_task(ping(websocket))
 
