@@ -59,7 +59,7 @@ async def ping(websocket):
         await websocket.send("ping")
 
 async def main():
-    async with websockets.serve(ws_handler, "0.0.0.0", WEBSOCKET_PORT):
+    async with websockets.serve(ws_handler, "0.0.0.0", WEBSOCKET_PORT, subprotocols=["binary", "text"]):
         await asyncio.Future()  # Run forever
 
 if __name__ == "__main__":
