@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8765
 
 # Run script with a restart policy when the container launches
-CMD ["sh", "-c", "until python proxy.py; do echo 'Restarting...'; sleep 1; done"]
+CMD ["python", "proxy.py"]
