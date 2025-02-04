@@ -5,26 +5,21 @@ import zmq.asyncio
 import json
 import os
 
-BITCOIN_ZMQ_ADDRESS = os.getenv("BITCOIN_ZMQ_ADDRESS", "tcp://default-bitcoind:9333")
-COUNTERPARTY_ZMQ_ADDRESS = os.getenv("COUNTERPARTY_ZMQ_ADDRESS", "tcp://default-counterparty:4001")
+BITCOIN_ZMQ_ADDRESS = os.getenv("BITCOIN_ZMQ_ADDRESS", "tcp://bitcoind:9333")
+COUNTERPARTY_ZMQ_ADDRESS = os.getenv("COUNTERPARTY_ZMQ_ADDRESS", "tcp://counterparty-core:4001")
 WEBSOCKET_PORT = int(os.getenv("WEBSOCKET_PORT", 8765))
 
-async def zmq_listener(socket):
-    while True:
-        msg = await socket.recv_multipart()
-        print(f"Received ZMQ message: {msg}")
-        yield msg
-
-async def zmq_listener_task(websocket):
-    context = zmq.asyncio.Context()
+def setup_zmq_socket(context, address, topics):
     socket = context.socket(zmq.SUB)
     socket.setsockopt(zmq.RCVHWM, 0)
-    socket.connect(COUNTERPARTY_ZMQ_ADDRESS)
-    #socket.connect(BITCOIN_ZMQ_ADDRESS)
-    #socket.setsockopt_string(zmq.SUBSCRIBE, 'rawblock')
-    socket.setsockopt_string(zmq.SUBSCRIBE, '')
+    socket.connect(address)
+    for topic in topics:
+        socket.setsockopt_string(zmq.SUBSCRIBE, topic)
+    return socket
 
-    async for msg in zmq_listener(socket):
+async def zmq_listener(socket, websocket):
+    while True:
+        msg = await socket.recv_multipart()
         try:
             json_str = msg[1].decode('utf-8')
             json_obj = json.loads(json_str)
@@ -33,15 +28,36 @@ async def zmq_listener_task(websocket):
         except (IndexError, UnicodeDecodeError, json.JSONDecodeError) as e:
             print(f"Error processing message: {e}")
             await websocket.send(str(msg))
-        except websockets.exceptions.ConnectionClosedError as e:
-            print(f"WebSocket connection closed with error: {e}")
-            break
-        except websockets.exceptions.ConnectionClosedOK as e:
-            print(f"WebSocket connection closed normally: {e}")
+        except websockets.exceptions.ConnectionClosed:
+            print("WebSocket connection closed")
             break
 
+async def zmq_listener_task(websocket, subscriptions):
+    context = zmq.asyncio.Context()
+    
+    # Mantener sockets compartidos por conexión
+    zmq_sockets = {}
+    if "bitcoin" in subscriptions:
+        zmq_sockets["bitcoin"] = setup_zmq_socket(context, BITCOIN_ZMQ_ADDRESS, [""])
+    if "counterparty" in subscriptions:
+        zmq_sockets["counterparty"] = setup_zmq_socket(context, COUNTERPARTY_ZMQ_ADDRESS, [""])
+    
+    tasks = [zmq_listener(socket, websocket) for socket in zmq_sockets.values()]
+    await asyncio.gather(*tasks)
+
 async def ws_handler(websocket, path=None):
-    listener_task = asyncio.create_task(zmq_listener_task(websocket))
+    # Suscribirse por defecto a Bitcoin y Counterparty
+    subscriptions = {"bitcoin", "counterparty"}
+    print(f"Subscriptions: {subscriptions}")
+    try:
+        message = await websocket.recv()
+        data = json.loads(message)
+        if "subscribe" in data:
+            subscriptions = set(data["subscribe"])  # Actualizar suscripciones según el cliente
+    except (json.JSONDecodeError, websockets.exceptions.ConnectionClosed):
+        pass
+    
+    listener_task = asyncio.create_task(zmq_listener_task(websocket, subscriptions))
     ping_task = asyncio.create_task(ping(websocket))
 
     done, pending = await asyncio.wait(
